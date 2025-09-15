@@ -63,11 +63,10 @@ class NSGA2InfoGain(NSGA2):
         self._y_ref = y
         self._H_y   = self._entropy(y)
 
-        self.fitness_objs = [
-            (lambda r: r.error_),
+        self.fitness_objs = list(self.fitness_objs or []) + [
             (lambda r, X_ref=X, y_ref=y, H_y=self._H_y: -self._information_gain(r.match(X_ref), y_ref, H_y)),
         ]
-        self.fitness_objs_labels = ["Error", "-IG"]
+        self.fitness_objs_labels = list(self.fitness_objs_labels or []) + ["-IG"]
 
         return super()._optimize(X, y, initial_rule, random_state)
 

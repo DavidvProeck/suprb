@@ -210,19 +210,12 @@ class NSGA2Novelty_G_P(NSGA2):
         random_state: RandomState,
     ) -> Optional[List[Rule]]:
 
-        if getattr(self, "elitist_", None) is None:
-            self.elitist_ = initial_rule #TODO Check if this is the correct place to set the elitist for origin generation
 
         useful_rules: List[Rule] = []
         restarts = 0
         clear_pool = True
 
         while len(useful_rules) < self.mu and restarts <= self.max_restarts:
-
-            if not self.keep_archive_across_restarts:
-                # fresh restart: ensure a sane starting elitist
-                self.elitist_ = self.elitist_ or initial_rule
-
             pareto_front = self._run_once(
                 X=X,
                 y=y,

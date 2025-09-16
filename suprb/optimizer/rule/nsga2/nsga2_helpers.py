@@ -3,6 +3,9 @@ from typing import List
 import numpy as np
 from matplotlib import pyplot as plt
 
+#deprecated
+#TODO: Rework to be sklearn conform. Extra objectives are currently added during runtime to be conform with sklearn standards. Need to fix this function.
+
 def visualize_pareto_front(
         self,
         pareto_front,

@@ -75,10 +75,13 @@ class NSGA2Novelty_G_P(NSGA2):
         self.max_restarts = max_restarts
         self.keep_archive_across_restarts = keep_archive_across_restarts
 
-        self.fitness_objs = list(self.fitness_objs or []) + [
-            lambda r: -getattr(r, "novelty_score_", np.inf)
-        ]
-        self.fitness_objs_labels = list(self.fitness_objs_labels or []) + ["-Novelty"]
+        # self.fitness_objs = list(self.fitness_objs or []) + [
+        #     lambda r: -getattr(r, "novelty_score_", np.inf)
+        # ]
+        # self.fitness_objs_labels = list(self.fitness_objs_labels or []) + ["-Novelty"]
+
+        self._novelty_obj = lambda r: -getattr(r, "novelty_score_", np.inf)
+        self._novelty_label = "-Novelty"
 
     # ────────────────────────────────────────────────────────────────
     # Novelty scoring
@@ -196,9 +199,9 @@ class NSGA2Novelty_G_P(NSGA2):
 
         return pareto_front
 
-    # ────────────────────────────────────────────────────────────────
-    # Running until `mu` useful rules are collected or max_restarts is hit
-    # ────────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────
+# Running until `mu` useful rules are collected or max_restarts is hit
+# ────────────────────────────────────────────────────────────────
     def _optimize(
         self,
         X: np.ndarray,
@@ -246,3 +249,14 @@ class NSGA2Novelty_G_P(NSGA2):
 
         print(f"Iterations needed to generate mu useful rules: {restarts + 1}")
         return useful_rules if useful_rules else (pareto_front or None)
+
+
+# ────────────────────────────────────────────────────────────────
+# Helper functions
+# ────────────────────────────────────────────────────────────────
+    def _fitness_objs_runtime(self) -> List[Callable[[Rule], float]]:
+        return list(self.fitness_objs) + [self._novelty_obj]
+
+
+    def _fitness_labels_runtime(self) -> List[str]:
+        return list(self.fitness_objs_labels) + [self._novelty_label]

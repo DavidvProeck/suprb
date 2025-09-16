@@ -2,7 +2,7 @@ import cProfile
 import pstats
 
 import numpy as np
-from typing import Optional, List, Callable
+from typing import Optional, List, Callable, Tuple
 from joblib import Parallel, delayed
 
 from suprb.rule import Rule, RuleInit
@@ -60,12 +60,14 @@ class NSGA2(MultiRuleDiscovery):
                 lambda r: r.error_,
                 lambda r: -r.volume_,
             ]
-        
-        self.fitness_objs = fitness_objs
+
+        # Change fitness objectives List to tuple avoid accidental changes.
+        # Extra objectives in subclasses are added during runtime to avoid sklearn.clone errors.
+        self.fitness_objs: Tuple[Callable[[Rule], float], ...] = tuple(fitness_objs)
 
         if fitness_objs_labels is None:
             fitness_objs_labels = [f"obj_{i}" for i in range(len(self.fitness_objs))]
-        self.fitness_objs_labels = fitness_objs_labels
+        self.fitness_objs_labels: Tuple[str, ...] = tuple(fitness_objs_labels)
 
         self.profile = profile
 
@@ -128,9 +130,9 @@ class NSGA2(MultiRuleDiscovery):
     def _fast_nondominated_sort(self, population: List[Rule]) -> List[List[Rule]]:
         if not population:
             return []
-
+        objs = self._fitness_objs_runtime()
         obj_matrix = np.vstack(
-            [[obj(rule) for obj in self.fitness_objs] for rule in population]
+            [[obj(rule) for obj in objs] for rule in population]
         )
 
         fronts = NonDominatedSorting().do(obj_matrix, only_non_dominated_front=False)
@@ -145,8 +147,9 @@ class NSGA2(MultiRuleDiscovery):
         if not front:
             return
 
+        objs = self._fitness_objs_runtime()
         obj_matrix = np.vstack(
-            [[obj(rule) for obj in self.fitness_objs] for rule in front]
+            [[obj(rule) for obj in objs] for rule in front]
         )
         crowding_distances = cd_func.do(obj_matrix)
 
@@ -194,3 +197,11 @@ class NSGA2(MultiRuleDiscovery):
                 break
 
         return population_new
+
+
+    def _fitness_objs_runtime(self) -> List[Callable[[Rule], float]]:
+        return list(self.fitness_objs)
+
+
+    def _fitness_labels_runtime(self) -> List[str]:
+        return list(self.fitness_objs_labels)

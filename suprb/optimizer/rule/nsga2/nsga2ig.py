@@ -63,10 +63,8 @@ class NSGA2InfoGain(NSGA2):
         self._y_ref = y
         self._H_y   = self._entropy(y)
 
-        self.fitness_objs = list(self.fitness_objs or []) + [
-            (lambda r, X_ref=X, y_ref=y, H_y=self._H_y: -self._information_gain(r.match(X_ref), y_ref, H_y)),
-        ]
-        self.fitness_objs_labels = list(self.fitness_objs_labels or []) + ["-IG"]
+        self._infogain_obj = lambda r, X_ref=X, y_ref=y, H_y=self._H_y: -self._information_gain(r.match(X_ref), y_ref, H_y)
+        self._infogain_label = "-IG"
 
         return super()._optimize(X, y, initial_rule, random_state)
 
@@ -93,3 +91,12 @@ class NSGA2InfoGain(NSGA2):
         H_m = NSGA2InfoGain._entropy(y[mask])
         H_nm = NSGA2InfoGain._entropy(y[~mask])
         return H_y - (p * H_m + (1.0 - p) * H_nm)
+
+# ────────────────────────────────────────────────────────────────
+# Helper functions
+# ────────────────────────────────────────────────────────────────
+def _fitness_objs_runtime(self) -> List[Callable[[Rule], float]]:
+    return list(self.fitness_objs) + [self._infogain_obj]
+
+def _fitness_labels_runtime(self) -> List[str]:
+    return list(self.fitness_objs_labels) + [self._infogain_label]

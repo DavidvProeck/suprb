@@ -143,7 +143,7 @@ class NSGA2Novelty_G_P(NSGA2):
             y: np.ndarray,
             random_state: RandomState,
             clear_pool: bool,
-            elitist=None,
+            origins,
     ) -> Optional[List[Rule]]:
 
         if clear_pool:
@@ -153,18 +153,6 @@ class NSGA2Novelty_G_P(NSGA2):
         if profiler:
             profiler.enable()
 
-        if elitist is None:
-            elitist = getattr(self, "elitist_", None)
-
-        origins = self.origin_generation(
-            n_rules=self.mu,
-            X=X,
-            y=y,
-            pool=self.pool_,
-            #elitist=self.elitist_,
-            elitist=elitist,
-            random_state=random_state,
-        )
 
         population = Parallel(n_jobs=self.n_jobs, prefer="threads")(
             delayed(self._init_valid_origin)(origin, X, y, random_state) for origin in origins
@@ -222,15 +210,24 @@ class NSGA2Novelty_G_P(NSGA2):
         restarts = 0
         clear_pool = True
 
-        local_elitist = getattr(self, "elitist_", None)
+        local_elitist = getattr(self, "elitist_", None) #run_once needs an elitist to function. Mention in paper pls
 
         while len(useful_rules) < self.mu and restarts <= self.max_restarts:
+            origins = self.origin_generation(
+                n_rules=self.mu,
+                X=X,
+                y=y,
+                pool=self.pool_,
+                elitist=local_elitist,  # will be non-None if your init.model trained successfully
+                random_state=random_state,
+            )
+
             pareto_front = self._run_once(
                 X=X,
                 y=y,
                 random_state=random_state,
                 clear_pool=clear_pool if not self.keep_archive_across_restarts else False,
-                elitist=local_elitist,
+                origins=origins,
             )
 
             if not pareto_front:

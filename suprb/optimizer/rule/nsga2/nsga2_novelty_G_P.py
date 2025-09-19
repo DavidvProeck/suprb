@@ -180,7 +180,7 @@ class NSGA2Novelty_G_P(NSGA2):
             profiler.enable()
 
 
-        population = Parallel(n_jobs=self.n_jobs, prefer="threads")(
+        population = Parallel(n_jobs=self.n_jobs)(
             delayed(self._init_valid_origin)(origin, X, y, random_state) for origin in origins
         )
         population = [p for p in population if p is not None]
@@ -194,7 +194,7 @@ class NSGA2Novelty_G_P(NSGA2):
         # main loop
         for _ in range(self.n_iter):
             parents = random_state.choice(population, size=self.lmbda, replace=True)
-            children = Parallel(n_jobs=self.n_jobs, prefer="threads")(
+            children = Parallel(n_jobs=self.n_jobs)(
                 delayed(self._generate_valid_child)(parent, X, y, random_state) for parent in parents
             )
             children = [c for c in children if c is not None]

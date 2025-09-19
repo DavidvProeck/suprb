@@ -4,7 +4,7 @@ from typing import Optional, List, Callable
 from suprb.rule import Rule, RuleInit
 from suprb.utils import RandomState
 
-from src.suprb.suprb.rule.initialization import MeanInit
+from suprb.rule.initialization import MeanInit
 from ..origin import SquaredError, RuleOriginGeneration
 from ..mutation import RuleMutation, HalfnormIncrease
 from ..constraint import CombinedConstraint, MinRange, Clip

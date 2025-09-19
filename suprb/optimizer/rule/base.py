@@ -119,18 +119,8 @@ class MultiRuleDiscovery(RuleDiscovery, metaclass=ABCMeta):
         self.random_state_ = check_random_state(self.random_state)
         random_state = self.random_state_
 
-        origin = self.origin_generation(
-            n_rules = 1,
-            X=X,
-            y=y,
-            pool=self.pool_,
-            elitist=self.elitist_,
-            random_state=random_state
-        )[0]
 
-        init_rule = self.constraint(self.init(mean=origin, random_state=random_state)).fit(X,y)
-
-        all_rules = self._optimize(X, y, init_rule, random_state) or []
+        all_rules = self._optimize(X, y, random_state) or [] #origins created in optimize function of subclass
 
         valid = self._filter_invalid_rules(X=X, y=y, rules=all_rules)
 
@@ -141,9 +131,8 @@ class MultiRuleDiscovery(RuleDiscovery, metaclass=ABCMeta):
     
     def _optimize(
             self,
-            X: np.array,
-            y: np.array,
-            initial_rule: Rule,
+            X: np.ndarray,
+            y: np.ndarray,
             random_state: RandomState,
     ) -> Optional[List[Rule]]:
         pass

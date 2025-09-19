@@ -4,12 +4,15 @@ import numpy as np
 from typing import Literal, Optional, List, Callable
 from joblib import Parallel, delayed
 
+from suprb import Solution
 from suprb.rule import Rule, RuleInit
 from suprb.rule.initialization import MeanInit
 from suprb.optimizer.rule.nsga2.nsga2 import NSGA2
 from suprb.optimizer.rule.ns.novelty_calculation import NoveltyCalculation
 from suprb.optimizer.rule.ns.archive import ArchiveNovel
 from suprb.optimizer.rule.ns.novelty_search_type import NoveltySearchType
+from suprb.solution.fitness import PseudoBIC
+from suprb.solution.mixing_model import ErrorExperienceHeuristic
 from suprb.utils import RandomState
 from .nsga2_helpers import visualize_pareto_front
 from ..origin import SquaredError, RuleOriginGeneration
@@ -85,15 +88,19 @@ class NSGA2Novelty_G_P(NSGA2):
         self._novelty_obj = lambda r: -getattr(r, "novelty_score_", np.inf)
         self._novelty_label = "-Novelty"
 
+        self._local_pool: List[Rule] = []
+        self._last_front: List[Rule] = []
+
     # ────────────────────────────────────────────────────────────────
     # Novelty scoring
     # ────────────────────────────────────────────────────────────────
     def _score_novelty(
-            self,
-            rules: List[Rule],
-            cohort: Optional[List[Rule]] = None,
-            force: bool = False,
+        self,
+        rules: List[Rule],
+        cohort: Optional[List[Rule]] = None,
+        force: bool = False,
     ) -> None:
+        #TODO: Redo the pseudocode in paper
         if not rules:
             return
 
@@ -102,22 +109,32 @@ class NSGA2Novelty_G_P(NSGA2):
             return
 
         if self.novelty_mode == "G":
-            ref = list(self.pool_)
-            if cohort and hasattr(self, "_last_front") and self._last_front:
-                seen = set(map(id, ref))
-                ref.extend([r for r in self._last_front if id(r) not in seen])
+            ref = []
+            seen = set()
+
+            def _extend_unique(src):
+                for r in src:
+                    rid = id(r)
+                    if rid not in seen:
+                        ref.append(r)
+                        seen.add(rid)
+
+            _extend_unique(self.pool_)
+            _extend_unique(self._local_pool)
+
+            if cohort and self._last_front:
+                _extend_unique(self._last_front)
             elif cohort:
-                seen = set(map(id, ref))
-                ref.extend([r for r in cohort if id(r) not in seen])
-        else:  # "P"
+                _extend_unique(cohort)
+        else:  # "P" — use only the current cohort (or the given rules)
             ref = list(cohort) if cohort else list(rules)
 
         self.novelty_calc.archive.archive = ref
         _ = self.novelty_calc(to_score)
 
         if self.novelty_mode == "G":
-            seen = set(map(id, self.pool_))
-            self.pool_.extend([r for r in to_score if (id(r) not in seen)])
+            seen_local = set(map(id, self._local_pool))
+            self._local_pool.extend([r for r in to_score if id(r) not in seen_local])
 
     # ────────────────────────────────────────────────────────────────
     # Helpers for restart logic
@@ -143,11 +160,20 @@ class NSGA2Novelty_G_P(NSGA2):
             y: np.ndarray,
             random_state: RandomState,
             clear_pool: bool,
-            origins,
     ) -> Optional[List[Rule]]:
 
         if clear_pool:
-            self.pool_.clear()
+            self._local_pool.clear()
+            self._last_front = []
+
+        origins = self.origin_generation(
+            n_rules=self.mu,
+            X=X,
+            y=y,
+            pool=self.pool_,
+            elitist=self.elitist_,  # will be non-None if your init.model trained successfully
+            random_state=random_state,
+        )
 
         profiler = cProfile.Profile() if self.profile else None
         if profiler:
@@ -202,32 +228,18 @@ class NSGA2Novelty_G_P(NSGA2):
             self,
             X: np.ndarray,
             y: np.ndarray,
-            initial_rule: Rule,
             random_state: RandomState,
     ) -> Optional[List[Rule]]:
 
         useful_rules: List[Rule] = []
         restarts = 0
-        clear_pool = True
-
-        local_elitist = getattr(self, "elitist_", None) #run_once needs an elitist to function. Mention in paper pls
 
         while len(useful_rules) < self.mu and restarts <= self.max_restarts:
-            origins = self.origin_generation(
-                n_rules=self.mu,
-                X=X,
-                y=y,
-                pool=self.pool_,
-                elitist=local_elitist,  # will be non-None if your init.model trained successfully
-                random_state=random_state,
-            )
-
             pareto_front = self._run_once(
                 X=X,
                 y=y,
                 random_state=random_state,
-                clear_pool=clear_pool if not self.keep_archive_across_restarts else False,
-                origins=origins,
+                clear_pool=(not self.keep_archive_across_restarts),
             )
 
             if not pareto_front:

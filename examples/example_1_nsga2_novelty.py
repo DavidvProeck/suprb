@@ -90,7 +90,7 @@ if __name__ == "__main__":
             profile=False,
             min_experience=2,  # Rules that match only one sample are considered trivial, so min_experience >= 2
             max_restarts=4,
-            keep_archive_across_restarts=True,
+            keep_archive_across_restarts=False,
         ),
         solution_composition=GeneticAlgorithm()
     )

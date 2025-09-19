@@ -6,12 +6,12 @@ from suprb.rule.initialization import MeanInit
 from suprb.optimizer.rule.nsga2.pymoo.rule_optimization_problem import RuleOptimizationProblem
 from suprb.optimizer.rule.nsga2.pymoo.pymoo_mutation import PymooRuleMutation
 from suprb.utils import RandomState
-from src.suprb.suprb.optimizer.rule.base import ParallelSingleRuleDiscovery
-from src.suprb.suprb.optimizer.rule.origin import SquaredError, RuleOriginGeneration
-from src.suprb.suprb.optimizer.rule.mutation import RuleMutation, HalfnormIncrease
-from src.suprb.suprb.optimizer.rule.constraint import CombinedConstraint, MinRange, Clip
-from src.suprb.suprb.optimizer.rule.acceptance import Variance
-from src.suprb.suprb.optimizer.rule import RuleAcceptance, RuleConstraint
+from suprb.optimizer.rule.base import ParallelSingleRuleDiscovery
+from suprb.optimizer.rule.origin import SquaredError, RuleOriginGeneration
+from suprb.optimizer.rule.mutation import RuleMutation, HalfnormIncrease
+from suprb.optimizer.rule.constraint import CombinedConstraint, MinRange, Clip
+from suprb.optimizer.rule.acceptance import Variance
+from suprb.optimizer.rule import RuleAcceptance, RuleConstraint
 
 
 from pymoo.algorithms.moo.nsga2 import NSGA2

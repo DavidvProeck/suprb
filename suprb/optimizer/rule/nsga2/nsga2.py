@@ -75,7 +75,6 @@ class NSGA2(MultiRuleDiscovery):
             self,
             X: np.ndarray,
             y: np.ndarray,
-            initial_rule: Rule,
             random_state: RandomState
     ) -> Optional[List[Rule]]:
         profiler = cProfile.Profile() if self.profile else None

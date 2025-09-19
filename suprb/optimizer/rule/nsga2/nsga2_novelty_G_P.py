@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 from typing import Literal, Optional, List, Callable
 from joblib import Parallel, delayed
@@ -29,29 +31,29 @@ class NSGA2Novelty_G_P(NSGA2):
     """
 
     def __init__(
-        self,
-        n_iter: int = 32,
-        mu: int = 50,
-        lmbda: int = 100,
-        origin_generation: RuleOriginGeneration = SquaredError(),
-        init: RuleInit = MeanInit(),
-        mutation: RuleMutation = HalfnormIncrease(sigma=1.22),
-        constraint: RuleConstraint = CombinedConstraint(MinRange(), Clip()),
-        acceptance: RuleAcceptance = Variance(),
-        random_state: int = None,
-        n_jobs: int = 1,
-        fitness_objs: Optional[List[Callable[[Rule], float]]] = None,
-        fitness_objs_labels: Optional[List[str]] = None,
-        novelty_calc: NoveltyCalculation = NoveltyCalculation(
-            novelty_search_type=NoveltySearchType(),
-            archive=ArchiveNovel(),
-            k_neighbor=15,
-        ),
-        novelty_mode: Literal["G", "P"] = "P",
-        profile: bool = False,
-        min_experience: int = 2,
-        max_restarts: int = 5,
-        keep_archive_across_restarts: bool = True,
+            self,
+            n_iter: int = 32,
+            mu: int = 50,
+            lmbda: int = 100,
+            origin_generation: RuleOriginGeneration = SquaredError(),
+            init: RuleInit = MeanInit(),
+            mutation: RuleMutation = HalfnormIncrease(sigma=1.22),
+            constraint: RuleConstraint = CombinedConstraint(MinRange(), Clip()),
+            acceptance: RuleAcceptance = Variance(),
+            random_state: int = None,
+            n_jobs: int = 1,
+            fitness_objs: Optional[List[Callable[[Rule], float]]] = None,
+            fitness_objs_labels: Optional[List[str]] = None,
+            novelty_calc: NoveltyCalculation = NoveltyCalculation(
+                novelty_search_type=NoveltySearchType(),
+                archive=ArchiveNovel(),
+                k_neighbor=15,
+            ),
+            novelty_mode: Literal["G", "P"] = "P",
+            profile: bool = False,
+            min_experience: int = 2,
+            max_restarts: int = 5,
+            keep_archive_across_restarts: bool = True,
     ):
         super().__init__(
             n_iter=n_iter,
@@ -87,10 +89,10 @@ class NSGA2Novelty_G_P(NSGA2):
     # Novelty scoring
     # ────────────────────────────────────────────────────────────────
     def _score_novelty(
-        self,
-        rules: List[Rule],
-        cohort: Optional[List[Rule]] = None,
-        force: bool = False,
+            self,
+            rules: List[Rule],
+            cohort: Optional[List[Rule]] = None,
+            force: bool = False,
     ) -> None:
         if not rules:
             return
@@ -131,17 +133,19 @@ class NSGA2Novelty_G_P(NSGA2):
                 base.append(r)
                 seen.add(id(r))
 
+
     # ────────────────────────────────────────────────────────────────
     # One full NSGA-II run: returns a Pareto front
     # ────────────────────────────────────────────────────────────────
     def _run_once(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        random_state: RandomState,
-        clear_pool: bool,
+            self,
+            X: np.ndarray,
+            y: np.ndarray,
+            random_state: RandomState,
+            clear_pool: bool,
+            elitist=None,
     ) -> Optional[List[Rule]]:
-        
+
         if clear_pool:
             self.pool_.clear()
 
@@ -149,16 +153,20 @@ class NSGA2Novelty_G_P(NSGA2):
         if profiler:
             profiler.enable()
 
+        if elitist is None:
+            elitist = getattr(self, "elitist_", None)
+
         origins = self.origin_generation(
             n_rules=self.mu,
             X=X,
             y=y,
             pool=self.pool_,
-            elitist=self.elitist_,
+            #elitist=self.elitist_,
+            elitist=elitist,
             random_state=random_state,
         )
 
-        population = Parallel(n_jobs=self.n_jobs)(
+        population = Parallel(n_jobs=self.n_jobs, prefer="threads")(
             delayed(self._init_valid_origin)(origin, X, y, random_state) for origin in origins
         )
         population = [p for p in population if p is not None]
@@ -172,7 +180,7 @@ class NSGA2Novelty_G_P(NSGA2):
         # main loop
         for _ in range(self.n_iter):
             parents = random_state.choice(population, size=self.lmbda, replace=True)
-            children = Parallel(n_jobs=self.n_jobs)(
+            children = Parallel(n_jobs=self.n_jobs, prefer="threads")(
                 delayed(self._generate_valid_child)(parent, X, y, random_state) for parent in parents
             )
             children = [c for c in children if c is not None]
@@ -199,21 +207,22 @@ class NSGA2Novelty_G_P(NSGA2):
 
         return pareto_front
 
-# ────────────────────────────────────────────────────────────────
-# Running until `mu` useful rules are collected or max_restarts is hit
-# ────────────────────────────────────────────────────────────────
+    # ────────────────────────────────────────────────────────────────
+    # Running until `mu` useful rules are collected or max_restarts is hit
+    # ────────────────────────────────────────────────────────────────
     def _optimize(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        initial_rule: Rule,
-        random_state: RandomState,
+            self,
+            X: np.ndarray,
+            y: np.ndarray,
+            initial_rule: Rule,
+            random_state: RandomState,
     ) -> Optional[List[Rule]]:
-
 
         useful_rules: List[Rule] = []
         restarts = 0
         clear_pool = True
+
+        local_elitist = getattr(self, "elitist_", None)
 
         while len(useful_rules) < self.mu and restarts <= self.max_restarts:
             pareto_front = self._run_once(
@@ -221,6 +230,7 @@ class NSGA2Novelty_G_P(NSGA2):
                 y=y,
                 random_state=random_state,
                 clear_pool=clear_pool if not self.keep_archive_across_restarts else False,
+                elitist=local_elitist,
             )
 
             if not pareto_front:
@@ -251,13 +261,11 @@ class NSGA2Novelty_G_P(NSGA2):
         print(f"Iterations needed to generate mu useful rules: {restarts + 1}")
         return useful_rules if useful_rules else (pareto_front or None)
 
-
-# ────────────────────────────────────────────────────────────────
-# Helper functions
-# ────────────────────────────────────────────────────────────────
+    # ────────────────────────────────────────────────────────────────
+    # Helper functions
+    # ────────────────────────────────────────────────────────────────
     def _fitness_objs_runtime(self) -> List[Callable[[Rule], float]]:
         return list(self.fitness_objs) + [self._novelty_obj]
-
 
     def _fitness_labels_runtime(self) -> List[str]:
         return list(self.fitness_objs_labels) + [self._novelty_label]

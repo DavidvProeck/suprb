@@ -283,7 +283,7 @@ class NSGA2Novelty_G_P(NSGA2):
     def _fitness_labels_runtime(self) -> List[str]:
         return list(self.fitness_objs_labels) + [self._novelty_label]
 
-    def _cap_list(self, seq: List[Rule] -> List[Rule]:
+    def _cap_list(self, seq: List[Rule]) -> List[Rule]:
         if len(seq) <= self.archive_maxlen:
             return seq
 

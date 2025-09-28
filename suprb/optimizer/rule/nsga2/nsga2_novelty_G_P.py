@@ -91,6 +91,8 @@ class NSGA2Novelty_G_P(NSGA2):
         self._local_pool: List[Rule] = []
         self._last_front: List[Rule] = []
 
+        self.archive_maxlen = 1000
+
     # ────────────────────────────────────────────────────────────────
     # Novelty scoring
     # ────────────────────────────────────────────────────────────────
@@ -129,6 +131,8 @@ class NSGA2Novelty_G_P(NSGA2):
         else:  # "P" — use only the current cohort (or the given rules)
             ref = list(cohort) if cohort else list(rules)
 
+        ref = self._cap_list(ref) # Cap archive size
+        
         self.novelty_calc.archive.archive = ref
         _ = self.novelty_calc(to_score)
 
@@ -278,3 +282,9 @@ class NSGA2Novelty_G_P(NSGA2):
 
     def _fitness_labels_runtime(self) -> List[str]:
         return list(self.fitness_objs_labels) + [self._novelty_label]
+
+    def _cap_list(self, seq: List[Rule]) -> List[Rule]:
+        if len(seq) <= self.archive_maxlen:
+            return seq
+
+        return seq[-self.archive_maxlen:]

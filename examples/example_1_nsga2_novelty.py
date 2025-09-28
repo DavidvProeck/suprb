@@ -16,7 +16,7 @@ import numpy as np
 from sklearn.linear_model import Ridge
 from sklearn.utils import Bunch, shuffle
 
-from suprb import rule, SupRB
+from suprb import rule, SupRB, WarmupSupRB
 from suprb.logging.combination import CombinedLogger
 from suprb.logging.default import DefaultLogger
 from suprb.logging.stdout import StdoutLogger
@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=random_state)
 
-    model = SupRB(
+    model = WarmupSupRB(
         rule_discovery=NSGA2Novelty_G_P(
             n_iter=16,
             mu=16,
@@ -92,7 +92,14 @@ if __name__ == "__main__":
             max_restarts=4,
             keep_archive_across_restarts=False,
         ),
-        solution_composition=GeneticAlgorithm()
+        solution_composition=GeneticAlgorithm(),
+        verbose=2,
+        warmup_strategy="auto",
+        warmup_rd_steps=0,  # fixed
+        warmup_max_steps=4,  # auto
+        warmup_pool_target=None,  # auto
+        warmup_patience=3,  # auto
+        warmup_delta=1,  # auto
     )
 
     scores = cross_validate(

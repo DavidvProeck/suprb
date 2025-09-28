@@ -55,7 +55,6 @@ class NSGA2InfoGain(NSGA2):
         self,
         X: np.ndarray,
         y: np.ndarray,
-        initial_rule: Rule,
         random_state: RandomState
     ):
         # Bind dataset for the IG objective
@@ -66,7 +65,7 @@ class NSGA2InfoGain(NSGA2):
         self._infogain_obj = lambda r, X_ref=X, y_ref=y, H_y=self._H_y: -self._information_gain(r.match(X_ref), y_ref, H_y)
         self._infogain_label = "-IG"
 
-        return super()._optimize(X, y, initial_rule, random_state)
+        return super()._optimize(X, y, random_state)
 
 
 # ────────────────────────────────────────────────────────────────────

@@ -99,28 +99,40 @@ class NSGA2(MultiRuleDiscovery):
 
         population = [p for p in population if p is not None]
 
+        # Make sure that initial population has crowding distance attribute
+        self._cd_func = FunctionalDiversity(calc_crowding_distance, filter_out_duplicates=True)
+        init_fronts = self._fast_nondominated_sort(population)
+        for init_front in init_fronts:
+            self._assign_crowding_distance(init_front, self._cd_func)
+
         for _ in range(self.n_iter):
+            #Select parents for reproduction of lmbda children
+            #parents = [self._tournament_select(population, random_state) for _ in range(self.lmbda)]
             parents = random_state.choice(population, size=self.lmbda, replace=True)
-
             children = Parallel(n_jobs=self.n_jobs)(
-                delayed(self._generate_valid_child)(parent, X, y, random_state)
-                for parent in parents
+                    delayed(self._generate_valid_child)(parent, X, y, random_state)
+                    for parent in parents
             )
-
             children = [c for c in children if c is not None]
 
             population_combined = population + children
+            #print(len(population_combined))
 
-            pareto_fronts = self._fast_nondominated_sort(population_combined)
-            population = self._build_next_population(pareto_fronts)
+            #Nondominated sorting
+            fronts = self._fast_nondominated_sort(population_combined)
 
-        pareto_front = pareto_fronts[0] if pareto_fronts else []
+            #Fill new population with fronts
+            population = self._build_next_population(fronts)
+            #print(len(population))
+
+        pareto_front = fronts[0] if fronts else []
         if profiler:
             profiler.disable()
             stats = pstats.Stats(profiler).sort_stats("cumtime")
             stats.print_stats(20)
 
         #visualize_pareto_front(self, pareto_front) #TODO: Fix this function
+
         return pareto_front
 
 # ────────────────────────────────────────────────────────────────────
@@ -135,6 +147,10 @@ class NSGA2(MultiRuleDiscovery):
         )
 
         fronts = NonDominatedSorting().do(obj_matrix, only_non_dominated_front=False)
+
+        for rank, front in enumerate(fronts):
+            for idx in front:
+                population[idx].rank_ = rank
         return [[population[i] for i in front] for front in fronts]
 
 
@@ -184,10 +200,8 @@ class NSGA2(MultiRuleDiscovery):
     ):
         population_new = []
 
-        cd_func = FunctionalDiversity(calc_crowding_distance, filter_out_duplicates=True)
-
         for front in pareto_fronts:
-            self._assign_crowding_distance(front, cd_func)
+            self._assign_crowding_distance(front, self._cd_func)
             if len(population_new) + len(front) <= self.mu:
                 population_new.extend(front)
             else:
@@ -196,6 +210,27 @@ class NSGA2(MultiRuleDiscovery):
                 break
 
         return population_new
+
+
+    def _tournament_select(
+            self,
+            population: List[Rule],
+            random_state: RandomState,
+    ) -> Rule:
+        a, b = random_state.choice(population, 2, replace=False)
+        if a.rank_ < b.rank_:
+            return a
+        elif b.rank_ < a.rank_:
+            return b
+        else:
+            if a.crowding_distance_ > b.crowding_distance_:
+                return a
+            elif b.crowding_distance_ > a.crowding_distance_:
+                return b
+            else:
+                return a if random_state.random() < 0.5 else b
+
+
 
 
     def _fitness_objs_runtime(self) -> List[Callable[[Rule], float]]:

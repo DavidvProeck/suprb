@@ -8,7 +8,7 @@ from suprb.utils import check_random_state
 from suprb.optimizer.rule.es import ES1xLambda
 from suprb.optimizer.solution.ga import GeneticAlgorithm
 
-from suprb.optimizer.rule.nsga2 import NSGA2InfoGain
+from suprb.optimizer.rule.nsga2 import NSGA2
 from utils import log_scores
 
 import numpy as np
@@ -66,8 +66,8 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=random_state)
 
     model = SupRB(
-        rule_discovery=NSGA2InfoGain(
-            n_iter=16,
+        rule_discovery=NSGA2(
+            n_iter=50,
             mu=16,
             lmbda=64,
             origin_generation=origin.SquaredError(),

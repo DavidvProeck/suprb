@@ -17,6 +17,8 @@ class WarmupSupRB(SupRB):
     """
     SupRB variant that performs several Rule-Discovery-only warm-up cycles
     before the first Solution Composition.
+
+    DEPRECATED. Functionality is already implemented in SupRB via n_initial_rules.
     """
 
     def __init__(

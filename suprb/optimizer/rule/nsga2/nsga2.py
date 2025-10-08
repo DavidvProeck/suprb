@@ -112,7 +112,7 @@ class NSGA2(MultiRuleDiscovery):
             population_combined = population + children
 
             pareto_fronts = self._fast_nondominated_sort(population_combined)
-            population = self._build_next_population(pareto_fronts)
+            population = self._build_next_population(pareto_fronts) #assigns crowding distance
 
         pareto_front = pareto_fronts[0] if pareto_fronts else []
         if profiler:

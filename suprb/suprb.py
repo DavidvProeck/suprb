@@ -186,6 +186,7 @@ class SupRB(BaseRegressor):
         if self.n_initial_rules > 0:
             if self._catch_errors(self._discover_rules, X, y, self.n_initial_rules):
                 return self
+            self._log_to_stdout(f"{len(self.pool_)} initial rules discovered before first step.")
 
         # Main loop
         for self.step_ in range(self.n_iter):
@@ -244,9 +245,18 @@ class SupRB(BaseRegressor):
 
         self._log_to_stdout(f"Generating {n_rules} rules", priority=4)
 
-        # Update the current elitist
-        self.rule_discovery_.elitist_ = self.solution_composition_.elitist()
 
+        # Update the current elitist
+        # try catch block needed for n_initial_rules as elitist is None Type without it
+        elit = None
+        try:
+            elit = self.solution_composition_.elitist()
+        except AttributeError:
+            pass
+        if elit is None:
+            elit = self.elitist_ #Initially dummy elitist: Solution([0, 0, 0], [0, 0, 0], ErrorExperienceHeuristic(), PseudoBIC())
+
+        self.rule_discovery_.elitist_ = elit
         # Update the random state
         self.rule_discovery_.random_state = self.rule_discovery_seeds_[self.step_]
 

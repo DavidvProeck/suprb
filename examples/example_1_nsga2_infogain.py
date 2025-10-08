@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     model = SupRB(
         rule_discovery=NSGA2InfoGain(
-            n_iter=16,
+            n_iter=20,
             mu=16,
             lmbda=64,
             origin_generation=origin.SquaredError(),
@@ -83,7 +83,8 @@ if __name__ == "__main__":
             fitness_objs=[lambda r: r.error_],
             fitness_objs_labels=["Error"],  # infogain objective is added internally
         ),
-        solution_composition=GeneticAlgorithm()
+        solution_composition=GeneticAlgorithm(),
+        n_initial_rules=4,
     )
 
     scores = cross_validate(

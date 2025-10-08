@@ -1,7 +1,9 @@
+import copy
 import warnings
+from collections import deque
 
 import numpy as np
-from typing import Literal, Optional, List, Callable
+from typing import Literal, Optional, List, Callable, Set, Deque
 from joblib import Parallel, delayed
 
 from suprb import Solution
@@ -80,65 +82,102 @@ class NSGA2Novelty_G_P(NSGA2):
         self.max_restarts = max_restarts
         self.keep_archive_across_restarts = keep_archive_across_restarts
 
-        # self.fitness_objs = list(self.fitness_objs or []) + [
-        #     lambda r: -getattr(r, "novelty_score_", np.inf)
-        # ]
-        # self.fitness_objs_labels = list(self.fitness_objs_labels or []) + ["-Novelty"]
-
         self._novelty_obj = lambda r: -getattr(r, "novelty_score_", np.inf)
         self._novelty_label = "-Novelty"
 
-        self._local_pool: List[Rule] = []
-        self._last_front: List[Rule] = []
+
+        self.last_front_: List[Rule] = []
 
         self.archive_maxlen = 1000
+        self.local_pool_: Deque[Rule] = deque(maxlen=self.archive_maxlen)
+        self._archive_seen_ids: Set[int] = set()
+
 
     # ────────────────────────────────────────────────────────────────
     # Novelty scoring
     # ────────────────────────────────────────────────────────────────
-    def _score_novelty(
-        self,
+    # def _score_novelty(
+    #     self,
+    #     rules: List[Rule],
+    #     cohort: Optional[List[Rule]] = None,
+    #     force: bool = False,
+    # ) -> None:
+    #     #TODO: Redo the pseudocode in paper
+    #     if not rules:
+    #         return
+    #
+    #     to_score = list(rules) if force else [r for r in rules if not hasattr(r, "novelty_score_")]
+    #     if not to_score:
+    #         return
+    #
+    #     if self.novelty_mode == "G":
+    #         ref = []
+    #         seen = set()
+    #
+    #         def _extend_unique(src):
+    #             for r in src:
+    #                 rid = id(r)
+    #                 if rid not in seen:
+    #                     r_clone = copy.deepcopy(r)
+    #                     ref.append(r_clone)
+    #                     seen.add(id(r_clone))
+    #
+    #         _extend_unique(self.pool_)
+    #         _extend_unique(self.local_pool_)
+    #
+    #         if cohort and self.last_front_:
+    #             _extend_unique(self.last_front_)
+    #         elif cohort:
+    #             _extend_unique(cohort)
+    #     else:  # "P" — use only the current cohort (or the given rules)
+    #         ref = list(cohort) if cohort else list(rules)
+    #
+    #     ref = self._cap_list(ref) # Cap archive size
+    #
+    #     self.novelty_calc.archive.archive = ref
+    #     _ = self.novelty_calc(to_score)
+    #
+    #     if self.novelty_mode == "G":
+    #         seen_local = set(map(id, self.local_pool_))
+    #         self.local_pool_.extend([r for r in to_score if id(r) not in seen_local])
+
+    def _score_novelty(self,
         rules: List[Rule],
         cohort: Optional[List[Rule]] = None,
         force: bool = False,
     ) -> None:
-        #TODO: Redo the pseudocode in paper
         if not rules:
             return
 
         to_score = list(rules) if force else [r for r in rules if not hasattr(r, "novelty_score_")]
         if not to_score:
             return
-
         if self.novelty_mode == "G":
-            ref = []
-            seen = set()
+            for r in to_score:
+                rid = id(r)
+                if rid not in self._archive_seen_ids:
+                    self.local_pool_.append(copy.deepcopy(r))
+                    self._archive_seen_ids.add(rid)
 
-            def _extend_unique(src):
-                for r in src:
-                    rid = id(r)
-                    if rid not in seen:
-                        ref.append(r)
-                        seen.add(rid)
+            ref = list(self.local_pool_)
 
-            _extend_unique(self.pool_)
-            _extend_unique(self._local_pool)
+            if cohort and self.last_front_:
+                extra = self.last_front_
+            else:
+                extra = cohort
 
-            if cohort and self._last_front:
-                _extend_unique(self._last_front)
-            elif cohort:
-                _extend_unique(cohort)
-        else:  # "P" — use only the current cohort (or the given rules)
+            if extra:
+                EXTRA_MAX = 256
+                extra_slice = extra[-EXTRA_MAX:] if len(extra) > EXTRA_MAX else extra
+                ref.extend(copy.deepcopy(extra_slice))
+        #novelty_mode = "P"
+        else:
             ref = list(cohort) if cohort else list(rules)
 
-        ref = self._cap_list(ref) # Cap archive size
-        
+        ref = self._cap_list(ref)
         self.novelty_calc.archive.archive = ref
         _ = self.novelty_calc(to_score)
 
-        if self.novelty_mode == "G":
-            seen_local = set(map(id, self._local_pool))
-            self._local_pool.extend([r for r in to_score if id(r) not in seen_local])
 
     # ────────────────────────────────────────────────────────────────
     # Helpers for restart logic
@@ -155,6 +194,7 @@ class NSGA2Novelty_G_P(NSGA2):
                 seen.add(id(r))
 
 
+
     # ────────────────────────────────────────────────────────────────
     # One full NSGA-II run: returns a Pareto front
     # ────────────────────────────────────────────────────────────────
@@ -167,8 +207,9 @@ class NSGA2Novelty_G_P(NSGA2):
     ) -> Optional[List[Rule]]:
 
         if clear_pool:
-            self._local_pool.clear()
-            self._last_front = []
+            self.local_pool_.clear()
+            self._archive_seen_ids.clear()
+            self.last_front_ = []
 
         origins = self.origin_generation(
             n_rules=self.mu,
@@ -212,7 +253,7 @@ class NSGA2Novelty_G_P(NSGA2):
             population_combined = population + children
 
             pareto_fronts = self._fast_nondominated_sort(population_combined)
-            self._last_front = pareto_fronts[0]
+            self.last_front_ = pareto_fronts[0]
 
             population = self._build_next_population(pareto_fronts)
 

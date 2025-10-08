@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=random_state)
 
-    model = WarmupSupRB(
+    model = SupRB(
         rule_discovery=NSGA2Novelty_G_P(
             n_iter=16,
             mu=16,
@@ -86,20 +86,20 @@ if __name__ == "__main__":
                 k_neighbor=15,
                 # novelty_search_type=MinimalCriteria(min_examples_matched=15)  # <- tuned #TODO: Leads to warnings in crowding distance calculation.
             ),
-            novelty_mode="P",
+            novelty_mode="G",
             profile=False,
             min_experience=2,  # Rules that match only one sample are considered trivial, so min_experience >= 2
             max_restarts=4,
             keep_archive_across_restarts=False,
         ),
         solution_composition=GeneticAlgorithm(),
-        verbose=2,
-        warmup_strategy="auto",
-        warmup_rd_steps=0,  # fixed
-        warmup_max_steps=4,  # auto
-        warmup_pool_target=None,  # auto
-        warmup_patience=3,  # auto
-        warmup_delta=1,  # auto
+        # verbose=2,
+        # warmup_strategy="auto",
+        # warmup_rd_steps=0,  # fixed
+        # warmup_max_steps=4,  # auto
+        # warmup_pool_target=None,  # auto
+        # warmup_patience=3,  # auto
+        # warmup_delta=1,  # auto
     )
 
     scores = cross_validate(

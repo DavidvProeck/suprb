@@ -18,7 +18,7 @@ from suprb.solution.mixing_model import ErrorExperienceHeuristic
 from suprb.utils import RandomState
 from .nsga2_helpers import visualize_pareto_front
 from ..origin import SquaredError, RuleOriginGeneration
-from ..mutation import RuleMutation, HalfnormIncrease
+from ..mutation import RuleMutation, HalfnormIncrease, Normal
 from ..constraint import CombinedConstraint, MinRange, Clip
 from ..acceptance import Variance
 from .. import RuleAcceptance, RuleConstraint
@@ -42,7 +42,7 @@ class NSGA2Novelty_G_P(NSGA2):
             lmbda: int = 100,
             origin_generation: RuleOriginGeneration = SquaredError(),
             init: RuleInit = MeanInit(),
-            mutation: RuleMutation = HalfnormIncrease(sigma=1.22),
+            mutation: RuleMutation = Normal(sigma=1.22),
             constraint: RuleConstraint = CombinedConstraint(MinRange(), Clip()),
             acceptance: RuleAcceptance = Variance(),
             random_state: int = None,

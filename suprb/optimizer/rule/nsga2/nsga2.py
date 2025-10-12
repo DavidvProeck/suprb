@@ -10,7 +10,7 @@ from suprb.rule.initialization import MeanInit
 from suprb.utils import RandomState
 from ..base import MultiRuleDiscovery
 from ..origin import Matching, SquaredError, RuleOriginGeneration
-from ..mutation import RuleMutation, HalfnormIncrease
+from ..mutation import RuleMutation, HalfnormIncrease, Normal
 from ..constraint import CombinedConstraint, MinRange, Clip
 from ..acceptance import Variance
 from .. import RuleAcceptance, RuleConstraint
@@ -32,7 +32,7 @@ class NSGA2(MultiRuleDiscovery):
             lmbda: int = 100,
             origin_generation: RuleOriginGeneration = SquaredError(),
             init: RuleInit = MeanInit(),
-            mutation: RuleMutation = HalfnormIncrease(sigma=1.22),
+            mutation: RuleMutation = Normal(sigma=1.22),
             constraint: RuleConstraint = CombinedConstraint(MinRange(), Clip()),
             acceptance: RuleAcceptance = Variance(),
             random_state: int = None,

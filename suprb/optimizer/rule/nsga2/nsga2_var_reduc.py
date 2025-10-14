@@ -13,11 +13,13 @@ from .. import RuleAcceptance, RuleConstraint
 
 from .nsga2 import NSGA2
 
-class NSGA2InfoGain(NSGA2):
+
+class NSGA2VarianceReduction(NSGA2):
     """
-    NSGA2 with error and information gain as objectives.
-    TODO: Better Description
+    NSGA-II variant using rule error and variance reduction (regression-style information gain)
+    as optimization objectives.
     """
+
     def __init__(
         self,
         n_iter: int = 32,
@@ -50,52 +52,43 @@ class NSGA2InfoGain(NSGA2):
             profile=profile,
         )
 
+    # ────────────────────────────────────────────────────────────────
+    # Main optimization entry
+    # ────────────────────────────────────────────────────────────────
+    def _optimize(self, X: np.ndarray, y: np.ndarray, random_state: RandomState):
+        self._var_y = np.var(y)
 
-    def _optimize(
-        self,
-        X: np.ndarray,
-        y: np.ndarray,
-        random_state: RandomState
-    ):
-        # Bind dataset for the IG objective
-        self._X_ref = X
-        self._y_ref = y
-        self._H_y   = self._entropy(y)
-
-        self._infogain_obj = lambda r, X_ref=X, y_ref=y, H_y=self._H_y: -self._information_gain(r.match(X_ref), y_ref, H_y)
-        self._infogain_label = "-IG"
+        self._varred_obj = lambda r, X_ref=X, y_ref=y, var_y=self._var_y: -self._variance_reduction(
+            r.match(X_ref), y_ref, var_y
+        )
+        self._varred_label = "-VarianceReduction"
 
         return super()._optimize(X, y, random_state)
 
-
-# ────────────────────────────────────────────────────────────────────
-# Information Gain Helpers
-# ────────────────────────────────────────────────────────────────────
+    # ────────────────────────────────────────────────────────────────
+    # Variance Reduction Helpers
+    # ────────────────────────────────────────────────────────────────
     @staticmethod
-    def _entropy(y: np.ndarray) -> float:
-        if y.size == 0:
-            return 0.0
-        vals, cnt = np.unique(y, return_counts=True)
-        p = cnt / cnt.sum()
-        return float(-np.sum(p * np.log2(p + 1e-12)))
-
-
-    @staticmethod
-    def _information_gain(mask: np.ndarray, y: np.ndarray, H_y: float) -> float:
+    def _variance_reduction(mask: np.ndarray, y: np.ndarray, var_y: float) -> float:
+        """
+        Variance-based analogue to information gain for regression.
+        IG_var = Var(y) - [p * Var(y[mask]) + (1 - p) * Var(y[~mask])]
+        """
         if mask.size == 0:
             return 0.0
         p = float(mask.mean())
         if p == 0.0 or p == 1.0:
             return 0.0
-        H_m = NSGA2InfoGain._entropy(y[mask])
-        H_nm = NSGA2InfoGain._entropy(y[~mask])
-        return H_y - (p * H_m + (1.0 - p) * H_nm)
+
+        var_match = np.var(y[mask]) if np.any(mask) else 0.0
+        var_not_match = np.var(y[~mask]) if np.any(~mask) else 0.0
+        return var_y - (p * var_match + (1.0 - p) * var_not_match)
 
     # ────────────────────────────────────────────────────────────────
     # Helper functions
     # ────────────────────────────────────────────────────────────────
     def _fitness_objs_runtime(self) -> List[Callable[[Rule], float]]:
-        return list(self.fitness_objs) + [self._infogain_obj]
+        return list(self.fitness_objs) + [self._varred_obj]
 
     def _fitness_labels_runtime(self) -> List[str]:
-        return list(self.fitness_objs_labels) + [self._infogain_label]
+        return list(self.fitness_objs_labels) + [self._varred_label]

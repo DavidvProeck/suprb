@@ -1,23 +1,34 @@
+import numpy as np
+import matplotlib.pyplot as plt
 from typing import List
 
-import numpy as np
-from matplotlib import pyplot as plt
+def visualize_pareto_front(self, pareto_front: List, save_path: str = "Paretofront.png") -> None:
+    if not pareto_front:
+        print("No Pareto front provided for visualization.")
+        return
 
-#deprecated
-#TODO: Rework to be sklearn conform. Extra objectives are currently added during runtime to be conform with sklearn standards. Need to fix this function.
+    objs = self._fitness_objs_runtime()
+    labels = self._fitness_labels_runtime()
 
-def visualize_pareto_front(
-        self,
-        pareto_front,
-):
-    x = [self.fitness_objs[0](r) for r in pareto_front]
-    y = [self.fitness_objs[1](r) for r in pareto_front]
+    if len(objs) != 2:
+        print(f"Expected exactly 2 objectives, found {len(objs)}. Skipping plot.")
+        return
+
+    obj_matrix = np.array([[objs[0](r), objs[1](r)] for r in pareto_front])
+
+    plt.rcParams["font.family"] = "serif"
+    plt.rcParams["font.serif"] = ["Times New Roman", "Times", "DejaVu Serif"]
+    plt.rcParams["mathtext.fontset"] = "cm"  # for consistent math font
 
     plt.figure(figsize=(6, 4))
-    plt.scatter(x, y, s=30, edgecolors='k')
-    plt.xlabel(self.fitness_objs_labels[0])
-    plt.ylabel(self.fitness_objs_labels[1])
-    plt.title('Pareto Optimal Set (Front 0)')
+    plt.scatter(obj_matrix[:, 0], obj_matrix[:, 1], s=40, c="royalblue", edgecolors="black", alpha=0.8)
+    plt.xlabel(labels[0], fontsize=11)
+    plt.ylabel(labels[1], fontsize=11)
+    plt.title("Pareto Front", fontsize=12, pad=10)
+    plt.grid(True, linestyle="--", alpha=0.5)
     plt.tight_layout()
-    plt.savefig("Paretofront.png", dpi=150)
+
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
+
+    print(f"Pareto front visualization saved to '{save_path}'")

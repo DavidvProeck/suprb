@@ -120,7 +120,7 @@ class NSGA2(MultiRuleDiscovery):
             stats = pstats.Stats(profiler).sort_stats("cumtime")
             stats.print_stats(20)
 
-        visualize_pareto_front(self, pareto_front)
+        #visualize_pareto_front(self, pareto_front)
         return pareto_front
 
 # ────────────────────────────────────────────────────────────────────

@@ -262,9 +262,9 @@ class NSGA2Novelty_G_P(NSGA2):
         if useful_rules:
             useful_rules = useful_rules[: self.mu]
 
-        to_visualize = useful_rules if useful_rules else (pareto_front or [])
-        if to_visualize:
-            visualize_pareto_front(self, to_visualize)
+        # to_visualize = useful_rules if useful_rules else (pareto_front or [])
+        # if to_visualize:
+        #     visualize_pareto_front(self, to_visualize)
 
         print(f"Iterations needed to generate mu useful rules: {restarts + 1}")
         return useful_rules if useful_rules else (pareto_front or None)

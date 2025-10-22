@@ -10,7 +10,7 @@ from suprb.rule.initialization import MeanInit
 from suprb.utils import RandomState
 from ..base import MultiRuleDiscovery
 from ..origin import Matching, SquaredError, RuleOriginGeneration
-from ..mutation import RuleMutation, HalfnormIncrease, Normal
+from ..mutation import RuleMutation, Normal
 from ..constraint import CombinedConstraint, MinRange, Clip
 from ..acceptance import Variance
 from .. import RuleAcceptance, RuleConstraint

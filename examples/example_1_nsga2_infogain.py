@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     model = SupRB(
         rule_discovery=NSGA2InfoGain(
-            n_iter=20,
+            n_iter=16,
             mu=16,
             lmbda=64,
             origin_generation=origin.SquaredError(),

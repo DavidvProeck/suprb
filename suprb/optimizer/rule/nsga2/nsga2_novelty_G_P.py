@@ -87,7 +87,7 @@ class NSGA2Novelty_G_P(NSGA2):
 
         self.last_front_: List[Rule] = []
 
-        self.archive_maxlen = 1000
+        self.archive_maxlen = 128
         self.local_pool_: Deque[Rule] = deque(maxlen=self.archive_maxlen)
         self._archive_seen_ids: Set[int] = set()
 
@@ -110,7 +110,7 @@ class NSGA2Novelty_G_P(NSGA2):
             for r in to_score:
                 rid = id(r)
                 if rid not in self._archive_seen_ids:
-                    self.local_pool_.append(copy.deepcopy(r))
+                    self.local_pool_.append(copy.copy(r))
                     self._archive_seen_ids.add(rid)
 
             ref = list(self.local_pool_)
@@ -123,10 +123,10 @@ class NSGA2Novelty_G_P(NSGA2):
             if extra:
                 EXTRA_MAX = 256
                 extra_slice = extra[-EXTRA_MAX:] if len(extra) > EXTRA_MAX else extra
-                ref.extend(copy.deepcopy(extra_slice))
+                ref.extend(copy.copy(r) for r in extra_slice)
         #novelty_mode = "P"
         else:
-            ref = list(cohort) if cohort else list(rules)
+            ref = [copy.copy(r) for r in cohort] if cohort else [copy.copy(r) for r in rules]
 
         ref = self._cap_list(ref)
         self.novelty_calc.archive.archive = ref

@@ -87,7 +87,7 @@ class NSGA2Novelty_G_P(NSGA2):
 
         self.last_front_: List[Rule] = []
 
-        self.archive_maxlen = 128
+        self.archive_maxlen = 256
         self.local_pool_: Deque[Rule] = deque(maxlen=self.archive_maxlen)
         self._archive_seen_ids: Set[int] = set()
 

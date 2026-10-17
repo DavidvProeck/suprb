@@ -348,11 +348,23 @@ class SupRB(BaseRegressor):
         del self.rule_discovery_
         del self.solution_composition_
 
-    def _more_tags(self):
+    # def _more_tags(self):
+    #     """
+    #     For scikit-learn compatability, as it shows R^2 < 0.5 on certain data sets.
+    #     Needed so that the model passes `check_estimator()`.
+    #     """
+    #     return {
+    #         "poor_score": True,
+    #     }
+
+    def __sklearn_tags__(self):
         """
-        For scikit-learn compatability, as it shows R^2 < 0.5 on certain data sets.
+        For scikit-learn compatibility, as it shows R^2 < 0.5 on certain data sets.
         Needed so that the model passes `check_estimator()`.
         """
-        return {
-            "poor_score": True,
-        }
+        from sklearn.utils._tags import RegressorTags
+        tags = super().__sklearn_tags__()
+        if tags.regressor_tags is None:
+            tags.regressor_tags = RegressorTags()
+        tags.regressor_tags.poor_score = True
+        return tags

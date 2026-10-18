@@ -67,6 +67,7 @@ class VolumeWu(VolumeRuleFitness):
         super().__init__(alpha)
         self.fitness_func_ = wu
 
+
 class PlaceholderFitness(RuleFitness, metaclass=ABCMeta):
     """
     A placeholder fitness function which always returns NaN.

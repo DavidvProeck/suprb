@@ -57,21 +57,21 @@ class NSGA2(MultiRuleDiscovery):
     """
 
     def __init__(
-            self,
-            n_iter: int = 32,
-            mu: int = 50,
-            lmbda: int = 100,
-            origin_generation: RuleOriginGeneration = SquaredError(),
-            init: RuleInit = MeanInit(),
-            mutation: RuleMutation = Normal(sigma=1.22),
-            constraint: RuleConstraint = CombinedConstraint(MinRange(), Clip()),
-            acceptance: RuleAcceptance = Variance(),
-            random_state: int = None,
-            n_jobs: int = 1,
-            fitness_objs: Optional[List[Callable[[Rule], float]]] = None,
-            fitness_objs_labels: Optional[List[str]] = None,
-            metrics: Optional[List[str]] = None,
-            profile: bool = False,
+        self,
+        n_iter: int = 32,
+        mu: int = 50,
+        lmbda: int = 100,
+        origin_generation: RuleOriginGeneration = SquaredError(),
+        init: RuleInit = MeanInit(),
+        mutation: RuleMutation = Normal(sigma=1.22),
+        constraint: RuleConstraint = CombinedConstraint(MinRange(), Clip()),
+        acceptance: RuleAcceptance = Variance(),
+        random_state: int = None,
+        n_jobs: int = 1,
+        fitness_objs: Optional[List[Callable[[Rule], float]]] = None,
+        fitness_objs_labels: Optional[List[str]] = None,
+        metrics: Optional[List[str]] = None,
+        profile: bool = False,
     ):
         super().__init__(
             n_iter=n_iter,
@@ -99,21 +99,14 @@ class NSGA2(MultiRuleDiscovery):
 
         if not self.fitness_objs and not self.metrics:
             raise ValueError(
-                "NSGA2 initialized without objectives. "
-                "You must provide `fitness_objs` and/or a list of `metrics`."
+                "NSGA2 initialized without objectives. " "You must provide `fitness_objs` and/or a list of `metrics`."
             )
 
         # Runtime objectives container placeholders
         self._dynamic_objs: List[Callable[[Rule], float]] = list(self.fitness_objs)
         self._dynamic_labels: List[str] = list(self.fitness_objs_labels)
 
-
-    def _optimize(
-            self,
-            X: np.ndarray,
-            y: np.ndarray,
-            random_state: RandomState
-    ) -> Optional[List[Rule]]:
+    def _optimize(self, X: np.ndarray, y: np.ndarray, random_state: RandomState) -> Optional[List[Rule]]:
 
         # Build dynamic objectives and labels that depend on dataset
         self._dynamic_objs, self._dynamic_labels = NSGA2Objectives.get_dynamic_objectives(
@@ -139,8 +132,7 @@ class NSGA2(MultiRuleDiscovery):
         )
 
         population = Parallel(n_jobs=self.n_jobs)(
-            delayed(self._init_valid_origin)(origin, X, y, random_state)
-            for origin in origins
+            delayed(self._init_valid_origin)(origin, X, y, random_state) for origin in origins
         )
         population = [p for p in population if p is not None]
 
@@ -149,8 +141,7 @@ class NSGA2(MultiRuleDiscovery):
             # Select parents and generate children.
             parents = random_state.choice(population, size=self.lmbda, replace=True)
             children = Parallel(n_jobs=self.n_jobs)(
-                delayed(self._generate_valid_child)(parent, X, y, random_state)
-                for parent in parents
+                delayed(self._generate_valid_child)(parent, X, y, random_state) for parent in parents
             )
             children = [c for c in children if c is not None]
 
@@ -169,7 +160,6 @@ class NSGA2(MultiRuleDiscovery):
 
         return pareto_front
 
-
     # ────────────────────────────────────────────────────────────────────
     # Helper Functions
     # ────────────────────────────────────────────────────────────────────
@@ -180,18 +170,15 @@ class NSGA2(MultiRuleDiscovery):
         if not population:
             return []
         objs = self._fitness_objs_runtime()
-        obj_matrix = np.vstack(
-            [[obj(rule) for obj in objs] for rule in population]
-        )
+        obj_matrix = np.vstack([[obj(rule) for obj in objs] for rule in population])
 
         fronts = NonDominatedSorting().do(obj_matrix, only_non_dominated_front=False)
         return [[population[i] for i in front] for front in fronts]
 
-
     def _assign_crowding_distance(
-            self,
-            front: List[Rule],
-            cd_func,
+        self,
+        front: List[Rule],
+        cd_func,
     ):
         """
         Calculate crowding distance using pymoo's crowding distance function.
@@ -200,41 +187,36 @@ class NSGA2(MultiRuleDiscovery):
             return
 
         objs = self._fitness_objs_runtime()
-        obj_matrix = np.vstack(
-            [[obj(rule) for obj in objs] for rule in front]
-        )
+        obj_matrix = np.vstack([[obj(rule) for obj in objs] for rule in front])
 
         crowding_distances = cd_func.do(obj_matrix)
 
         for rule, dist in zip(front, crowding_distances):
             rule.crowding_distance_ = dist
 
-
     def _init_valid_origin(
-            self,
-            origin,
-            X,
-            y,
-            random_state,
+        self,
+        origin,
+        X,
+        y,
+        random_state,
     ):
         rule = self.constraint(self.init(mean=origin, random_state=random_state)).fit(X, y)
         return rule if rule.is_fitted_ and rule.experience_ > 0 else None
 
-
     def _generate_valid_child(
-            self,
-            parent,
-            X,
-            y,
-            random_state,
+        self,
+        parent,
+        X,
+        y,
+        random_state,
     ):
         child = self.constraint(self.mutation(parent, random_state)).fit(X, y)
         return child if child.is_fitted_ and child.experience_ > 0 else None
 
-
     def _build_next_population(
-            self,
-            pareto_fronts,
+        self,
+        pareto_fronts,
     ):
         """
         Add fronts starting from F_0 until population limit mu is reached.
@@ -250,18 +232,16 @@ class NSGA2(MultiRuleDiscovery):
                 population_new.extend(front)
             else:
                 front_sorted = sorted(front, key=lambda rule: -rule.crowding_distance_)
-                population_new.extend(front_sorted[:self.mu - len(population_new)])
+                population_new.extend(front_sorted[: self.mu - len(population_new)])
                 break
 
         return population_new
-
 
     def _fitness_objs_runtime(self) -> List[Callable[[Rule], float]]:
         """
         Returns list of all active fitness objectives.
         """
         return list(self._dynamic_objs)
-
 
     def _fitness_labels_runtime(self) -> List[str]:
         """

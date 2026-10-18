@@ -11,7 +11,6 @@ from examples.utils import log_scores
 from suprb.optimizer.rule.nsga2 import NSGA2
 from suprb.optimizer.solution.ga import GeneticAlgorithm
 
-
 if __name__ == "__main__":
     t0 = time()
     random_state = 42
@@ -27,12 +26,7 @@ if __name__ == "__main__":
 
     model = SupRB(
         rule_discovery=NSGA2(
-            n_iter=20,
-            mu=50,
-            lmbda=100,
-            random_state=random_state,
-            n_jobs=1,
-            metrics=['error', 'volume']
+            n_iter=20, mu=50, lmbda=100, random_state=random_state, n_jobs=1, metrics=["error", "volume"]
         ),
         solution_composition=GeneticAlgorithm(
             n_iter=32,
@@ -44,14 +38,14 @@ if __name__ == "__main__":
     )
 
     scores = cross_validate(
-    model,
-    X,
-    y,
-    cv=4,
-    n_jobs=1,
-    verbose=10,
-    scoring=["r2", "neg_mean_squared_error"],
-    return_estimator=True,
+        model,
+        X,
+        y,
+        cv=4,
+        n_jobs=1,
+        verbose=10,
+        scoring=["r2", "neg_mean_squared_error"],
+        return_estimator=True,
     )
 
     log_scores(scores)

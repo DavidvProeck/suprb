@@ -41,13 +41,13 @@ class MatchingFunction(BaseComponent, metaclass=ABCMeta):
 
         if self.bounds.shape[0] != X.shape[1]:
             raise ValueError(f"bounds- and input data dimension mismatch: {self.bounds.shape[0]} != {X.shape[1]}")
-    
+
     @abstractmethod
     def get_param_vector(self) -> np.array:
         pass
 
     @abstractmethod
-    def set_param_vector(self, x: np.array ) -> None:
+    def set_param_vector(self, x: np.array) -> None:
         pass
 
 
@@ -87,11 +87,10 @@ class OrderedBound(MatchingFunction):
 
     def get_param_vector(self):
         return self.bounds.flatten()
-    
+
     def set_param_vector(self, x):
         x = np.asarray(x)
         self.bounds = x.reshape((-1, 2))
-
 
 
 class UnorderedBound(MatchingFunction):
@@ -241,7 +240,7 @@ class MinPercentage(MatchingFunction):
             # Approximate increasing the width by min_range
             self.bounds[invalid_indices, 0] -= min_range / 2
             self.bounds[invalid_indices, 1] += min_range
-    
+
     def get_param_vector(self):
         return self.bounds.flatten()
 

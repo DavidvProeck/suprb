@@ -112,8 +112,8 @@ class Rule(SolutionBase):
         Created for MOO-RD with pymoo's precompiled algorithms.
         """
         return self.match.get_param_vector()
-    
-    def set_param_vector(self, x:np.array) -> Rule:
+
+    def set_param_vector(self, x: np.array) -> Rule:
         """
         Sets rule parameter vector.
         """

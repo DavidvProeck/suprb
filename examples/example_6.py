@@ -1,0 +1,58 @@
+from datetime import timedelta
+from time import time
+import sklearn
+
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.model_selection import cross_validate
+from sklearn.datasets import fetch_openml
+
+from suprb import SupRB
+from examples.utils import log_scores
+from suprb.optimizer.rule.nsga2 import NSGA2
+from suprb.optimizer.solution.ga import GeneticAlgorithm
+
+
+if __name__ == "__main__":
+    t0 = time()
+    random_state = 42
+
+    data, _ = fetch_openml(name="Concrete_Data", version=1, return_X_y=True)
+    data = data.to_numpy()
+
+    X, y = data[:, :8], data[:, 8]
+    X, y = sklearn.utils.shuffle(X, y, random_state=random_state)
+
+    X = MinMaxScaler(feature_range=(-1, 1)).fit_transform(X)
+    y = StandardScaler().fit_transform(y.reshape((-1, 1))).reshape((-1,))
+
+    model = SupRB(
+        rule_discovery=NSGA2(
+            n_iter=20,
+            mu=50,
+            lmbda=100,
+            random_state=random_state,
+            n_jobs=1,
+            metrics=['error', 'volume']
+        ),
+        solution_composition=GeneticAlgorithm(
+            n_iter=32,
+            population_size=32,
+            elitist_ratio=0.2,
+            random_state=random_state,
+            n_jobs=1,
+        ),
+    )
+
+    scores = cross_validate(
+    model,
+    X,
+    y,
+    cv=4,
+    n_jobs=1,
+    verbose=10,
+    scoring=["r2", "neg_mean_squared_error"],
+    return_estimator=True,
+    )
+
+    log_scores(scores)
+    print(f"\nTotal runtime: {timedelta(seconds=time() - t0)}")

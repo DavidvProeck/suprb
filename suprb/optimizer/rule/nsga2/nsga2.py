@@ -14,7 +14,7 @@ from ..mutation import RuleMutation, Normal
 from ..constraint import CombinedConstraint, MinRange, Clip
 from ..acceptance import Variance
 from .. import RuleAcceptance, RuleConstraint
-from .nsga2_helpers import visualize_pareto_front
+from .nsga2_objectives import NSGA2Objectives
 
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.operators.survival.rank_and_crowding.metrics import calc_crowding_distance, FunctionalDiversity
@@ -28,7 +28,7 @@ class NSGA2(MultiRuleDiscovery):
     This class implements a multi-objective evolutionary algorithm for
     rule discovery. It uses pymoo's fast nondominated sorting and crowding
     distance operators, and serves as a base class for multi-objective
-    optimization in MOO-RD.
+    optimization in rule discovery.
 
     Parameters
     ----------
@@ -46,14 +46,16 @@ class NSGA2(MultiRuleDiscovery):
     random_state : int or None
     n_jobs : int
     fitness_objs : list, optional
-        List of fitness objectives
-        Defaults to [rule.error_, -rule.volume_].
+        List of custom fitness objectives.
     fitness_objs_labels : list of str, optional
-        Names corresponding to the objective functions.
-        Defaults to ["obj_0", "obj_1", ...].
+        Names corresponding to the custom objective functions.
+    metrics : list of str, optional
+        List of metric objectives to include via registry (e.g., ["error", "volume", "variance_reduction"]). Includes all the standard objectives.
+        Defaults to ["error", "volume"] if neither fitness_objs nor metrics are specified.
     profile : bool, default=False
         If True, wraps the optimization loop in a profiler and prints stats.
     """
+
     def __init__(
             self,
             n_iter: int = 32,
@@ -68,6 +70,7 @@ class NSGA2(MultiRuleDiscovery):
             n_jobs: int = 1,
             fitness_objs: Optional[List[Callable[[Rule], float]]] = None,
             fitness_objs_labels: Optional[List[str]] = None,
+            metrics: Optional[List[str]] = None,
             profile: bool = False,
     ):
         super().__init__(
@@ -83,21 +86,27 @@ class NSGA2(MultiRuleDiscovery):
         self.lmbda = lmbda
         self.mutation = mutation
         self.constraint = constraint
-
-        if fitness_objs is None:
-            fitness_objs = [
-                lambda r: r.error_,
-                lambda r: -r.volume_,
-            ]
-
-        # Extra objectives in subclasses are added during runtime to avoid sklearn.clone errors.
-        self.fitness_objs: Tuple[Callable[[Rule], float], ...] = tuple(fitness_objs)
-
-        if fitness_objs_labels is None:
-            fitness_objs_labels = [f"obj_{i}" for i in range(len(self.fitness_objs))]
-        self.fitness_objs_labels: Tuple[str, ...] = tuple(fitness_objs_labels)
-
         self.profile = profile
+
+        self.fitness_objs: Tuple[Callable[[Rule], float], ...] = tuple(fitness_objs) if fitness_objs else ()
+        self.fitness_objs_labels: Tuple[str, ...] = tuple(fitness_objs_labels) if fitness_objs_labels else ()
+
+        # Default standard metrics to ['error', 'volume'] if no objectives or metrics are provided
+        if not self.fitness_objs and metrics is None:
+            self.metrics = ["error", "volume"]
+        else:
+            self.metrics = metrics or []
+
+        if not self.fitness_objs and not self.metrics:
+            raise ValueError(
+                "NSGA2 initialized without objectives. "
+                "You must provide `fitness_objs` and/or a list of `metrics`."
+            )
+
+        # Runtime objectives container placeholders
+        self._dynamic_objs: List[Callable[[Rule], float]] = list(self.fitness_objs)
+        self._dynamic_labels: List[str] = list(self.fitness_objs_labels)
+
 
     def _optimize(
             self,
@@ -105,12 +114,21 @@ class NSGA2(MultiRuleDiscovery):
             y: np.ndarray,
             random_state: RandomState
     ) -> Optional[List[Rule]]:
+
+        # Build dynamic objectives and labels that depend on dataset
+        self._dynamic_objs, self._dynamic_labels = NSGA2Objectives.get_dynamic_objectives(
+            X=X,
+            y=y,
+            fitness_objs=self.fitness_objs,
+            fitness_labels=self.fitness_objs_labels,
+            metrics=self.metrics,
+        )
+
         profiler = cProfile.Profile() if self.profile else None
         if profiler:
             profiler.enable()
 
         # Generate initial population.
-        population = []
         origins = self.origin_generation(
             n_rules=self.mu,
             X=X,
@@ -139,7 +157,7 @@ class NSGA2(MultiRuleDiscovery):
             # Combine current population and children (mu + lmbda), then nondominated sorting into fronts.
             population_combined = population + children
             pareto_fronts = self._fast_nondominated_sort(population_combined)
-            population = self._build_next_population(pareto_fronts) #asigns crowding distance, build next population of size mu.
+            population = self._build_next_population(pareto_fronts)
 
         # The nondominated set.
         pareto_front = pareto_fronts[0] if pareto_fronts else []
@@ -149,15 +167,12 @@ class NSGA2(MultiRuleDiscovery):
             stats = pstats.Stats(profiler).sort_stats("cumtime")
             stats.print_stats(20)
 
-        # Visualize the objective space distribution for the chosen fitness objectives. Is intended for the isolated experiments.
-        # Comment out if not run in isolation or for more than one iteration.
-        #visualize_pareto_front(self, pareto_front)
-
         return pareto_front
 
-# ────────────────────────────────────────────────────────────────────
-# Helper Functions
-# ────────────────────────────────────────────────────────────────────
+
+    # ────────────────────────────────────────────────────────────────────
+    # Helper Functions
+    # ────────────────────────────────────────────────────────────────────
     def _fast_nondominated_sort(self, population: List[Rule]) -> List[List[Rule]]:
         """
         Sorts population into fronts using pymoo's fast nondominated sort.
@@ -203,17 +218,17 @@ class NSGA2(MultiRuleDiscovery):
             random_state,
     ):
         rule = self.constraint(self.init(mean=origin, random_state=random_state)).fit(X, y)
-        return rule if rule.is_fitted_ and rule.experience_> 0 else None
+        return rule if rule.is_fitted_ and rule.experience_ > 0 else None
 
 
     def _generate_valid_child(
-        self,
-        parent,
-        X,
-        y,
-        random_state,
+            self,
+            parent,
+            X,
+            y,
+            random_state,
     ):
-        child = self.constraint(self.mutation(parent, random_state)).fit(X,y)
+        child = self.constraint(self.mutation(parent, random_state)).fit(X, y)
         return child if child.is_fitted_ and child.experience_ > 0 else None
 
 
@@ -243,14 +258,13 @@ class NSGA2(MultiRuleDiscovery):
 
     def _fitness_objs_runtime(self) -> List[Callable[[Rule], float]]:
         """
-        Used in the subclasses to add the secondary objective at runtime.
-        If set otherwise, the objectives generate a sklearn error.
+        Returns list of all active fitness objectives.
         """
-        return list(self.fitness_objs)
+        return list(self._dynamic_objs)
 
 
     def _fitness_labels_runtime(self) -> List[str]:
         """
-        Returns list of all fitness objectives used.
+        Returns list of all active fitness objective labels.
         """
-        return list(self.fitness_objs_labels)
+        return list(self._dynamic_labels)

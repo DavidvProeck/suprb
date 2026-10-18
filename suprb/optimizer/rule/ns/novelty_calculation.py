@@ -34,7 +34,7 @@ class NoveltyCalculation(BaseComponent):
                 rule.distances_ = []
                 for archive_rule in archive:
 
-                    if not hasattr(archive_rule, 'distances_'): #Was a problem with MOO-RD with novelty
+                    if not hasattr(archive_rule, "distances_"):  # Was a problem with MOO-RD with novelty
                         archive_rule.distances_ = []
 
                     hamming_distance = hamming(rule.match_set_, archive_rule.match_set_)

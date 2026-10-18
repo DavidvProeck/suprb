@@ -120,20 +120,19 @@ class MultiRuleDiscovery(RuleDiscovery, metaclass=ABCMeta):
         self.random_state_ = check_random_state(self.random_state)
         random_state = self.random_state_
 
-
-        all_rules = self._optimize(X, y, random_state) or [] #origins created in optimize function of subclass
+        all_rules = self._optimize(X, y, random_state) or []  # origins created in optimize function of subclass
 
         valid = self._filter_invalid_rules(X=X, y=y, rules=all_rules)
 
         if len(valid) < n_rules:
             print(f"Warning: Requested {n_rules} but only {len(valid)} Pareto-optimal rule(s) generated.")
-        
+
         return valid[:n_rules]
-    
+
     def _optimize(
-            self,
-            X: np.ndarray,
-            y: np.ndarray,
-            random_state: RandomState,
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        random_state: RandomState,
     ) -> Optional[List[Rule]]:
         pass

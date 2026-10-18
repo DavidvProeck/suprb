@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import cross_validate, train_test_split
 
-from suprb import SupRB, WarmupSupRB
+from suprb import SupRB
 from suprb.utils import check_random_state
 from suprb.optimizer.rule.es import ES1xLambda
 from suprb.optimizer.solution.ga import GeneticAlgorithm
@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=random_state)
 
-    model = WarmupSupRB(rule_discovery=ES1xLambda(), solution_composition=GeneticAlgorithm())
+    model = SupRB(rule_discovery=ES1xLambda(), solution_composition=GeneticAlgorithm())
 
     scores = cross_validate(
         model,

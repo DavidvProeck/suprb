@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from typing import List
 from datetime import datetime
 
+
 def visualize_pareto_front(self, pareto_front: List, save_path: str = "Objective_Space_Distribution") -> None:
     """
     Generates PDF of the objective space distribution of the input list of rules.
@@ -28,14 +29,7 @@ def visualize_pareto_front(self, pareto_front: List, save_path: str = "Objective
     plt.rcParams["svg.fonttype"] = "none"
 
     plt.figure(figsize=(6, 4))
-    plt.scatter(
-        obj_matrix[:, 0],
-        obj_matrix[:, 1],
-        s=40,
-        c="royalblue",
-        edgecolors="black",
-        alpha=0.8
-    )
+    plt.scatter(obj_matrix[:, 0], obj_matrix[:, 1], s=40, c="royalblue", edgecolors="black", alpha=0.8)
     plt.xlabel(labels[0], fontsize=11)
     plt.ylabel(labels[1], fontsize=11)
     plt.title("Objective Space Distribution", fontsize=12, pad=10)

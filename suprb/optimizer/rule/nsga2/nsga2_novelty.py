@@ -10,6 +10,7 @@ from suprb import Solution
 from suprb.rule import Rule, RuleInit
 from suprb.rule.initialization import MeanInit
 from suprb.optimizer.rule.nsga2.nsga2 import NSGA2
+from suprb.optimizer.rule.nsga2.nsga2_objectives import NSGA2Objectives  # <--- Helper import
 from suprb.optimizer.rule.ns.novelty_calculation import NoveltyCalculation
 from suprb.optimizer.rule.ns.archive import ArchiveNovel
 from suprb.optimizer.rule.ns.novelty_search_type import NoveltySearchType
@@ -27,7 +28,7 @@ import cProfile
 import pstats
 
 
-class NSGA2Novelty_G_P(NSGA2):
+class NSGA2Novelty(NSGA2):
     """
     MOO-RD variant that adds novelty as an objective and supports restart logic:
     If a run's Pareto front only contains trivial rules (e.g., experience == 1),
@@ -50,14 +51,13 @@ class NSGA2Novelty_G_P(NSGA2):
     random_state : int or None
     n_jobs : int
     fitness_objs : list, optional
-        List of fitness objectives
-        Defaults to [rule.error_, -rule.volume_].
-        Variance reduction objective is added internally.
+        List of custom fitness objectives.
     fitness_objs_labels : list of str, optional
         Names corresponding to the objective functions.
-        Defaults to ["obj_0", "obj_1", ...].
+    metrics : list of str, optional
+        List of metric objectives to include via registry (e.g., ["error", "volume", "variance_reduction"]).
     novelty_calc: NoveltyCalculation
-        Class to calculate the novelty score based on NoveltySearchType, Archive and k_neigbor.
+        Class to calculate the novelty score based on NoveltySearchType, Archive and k_neighbor.
     novelty_mode: Literal
         Either 'P' or 'G'.
         In 'P' mode, only the current cohort is used for novelty score calculation.
@@ -74,29 +74,30 @@ class NSGA2Novelty_G_P(NSGA2):
     """
 
     def __init__(
-            self,
-            n_iter: int = 32,
-            mu: int = 50,
-            lmbda: int = 100,
-            origin_generation: RuleOriginGeneration = SquaredError(),
-            init: RuleInit = MeanInit(),
-            mutation: RuleMutation = Normal(sigma=1.22),
-            constraint: RuleConstraint = CombinedConstraint(MinRange(), Clip()),
-            acceptance: RuleAcceptance = Variance(),
-            random_state: int = None,
-            n_jobs: int = 1,
-            fitness_objs: Optional[List[Callable[[Rule], float]]] = None,
-            fitness_objs_labels: Optional[List[str]] = None,
-            novelty_calc: NoveltyCalculation = NoveltyCalculation(
-                novelty_search_type=NoveltySearchType(),
-                archive=ArchiveNovel(),
-                k_neighbor=15,
-            ),
-            novelty_mode: Literal["G", "P"] = "P",
-            profile: bool = False,
-            min_experience: int = 2,
-            max_restarts: int = 5,
-            keep_archive_across_restarts: bool = True,
+        self,
+        n_iter: int = 32,
+        mu: int = 50,
+        lmbda: int = 100,
+        origin_generation: RuleOriginGeneration = SquaredError(),
+        init: RuleInit = MeanInit(),
+        mutation: RuleMutation = Normal(sigma=1.22),
+        constraint: RuleConstraint = CombinedConstraint(MinRange(), Clip()),
+        acceptance: RuleAcceptance = Variance(),
+        random_state: int = None,
+        n_jobs: int = 1,
+        fitness_objs: Optional[List[Callable[[Rule], float]]] = None,
+        fitness_objs_labels: Optional[List[str]] = None,
+        metrics: Optional[List[str]] = None,
+        novelty_calc: NoveltyCalculation = NoveltyCalculation(
+            novelty_search_type=NoveltySearchType(),
+            archive=ArchiveNovel(),
+            k_neighbor=15,
+        ),
+        novelty_mode: Literal["G", "P"] = "P",
+        profile: bool = False,
+        min_experience: int = 2,
+        max_restarts: int = 5,
+        keep_archive_across_restarts: bool = True,
     ):
         super().__init__(
             n_iter=n_iter,
@@ -111,10 +112,11 @@ class NSGA2Novelty_G_P(NSGA2):
             n_jobs=n_jobs,
             fitness_objs=fitness_objs,
             fitness_objs_labels=fitness_objs_labels,
+            metrics=metrics,
+            profile=profile,
         )
         self.novelty_calc = novelty_calc
         self.novelty_mode = novelty_mode
-        self.profile = profile
 
         self.min_experience = min_experience
         self.max_restarts = max_restarts
@@ -129,8 +131,8 @@ class NSGA2Novelty_G_P(NSGA2):
         self.local_pool_: Deque[Rule] = deque(maxlen=self.archive_maxlen)
         self._archive_seen_ids: Set[int] = set()
 
-
-    def _score_novelty(self,
+    def _score_novelty(
+        self,
         rules: List[Rule],
         cohort: Optional[List[Rule]] = None,
         force: bool = False,
@@ -166,7 +168,6 @@ class NSGA2Novelty_G_P(NSGA2):
                 EXTRA_MAX = 256
                 extra_slice = extra[-EXTRA_MAX:] if len(extra) > EXTRA_MAX else extra
                 ref.extend(copy.copy(r) for r in extra_slice)
-        #novelty_mode = 'P'
         else:
             ref = [copy.copy(r) for r in cohort] if cohort else [copy.copy(r) for r in rules]
 
@@ -174,10 +175,9 @@ class NSGA2Novelty_G_P(NSGA2):
         self.novelty_calc.archive.archive = ref
         _ = self.novelty_calc(to_score)
 
-
-# ────────────────────────────────────────────────────────────────
-# Helpers for restart logic
-# ────────────────────────────────────────────────────────────────
+    # ────────────────────────────────────────────────────────────────
+    # Helpers for restart logic
+    # ────────────────────────────────────────────────────────────────
     def _is_useful(self, r: Rule) -> bool:
         """Define 'useful' rules here."""
         return getattr(r, "experience_", 0) >= self.min_experience
@@ -189,13 +189,12 @@ class NSGA2Novelty_G_P(NSGA2):
                 base.append(r)
                 seen.add(id(r))
 
-
     def _run_once(
-            self,
-            X: np.ndarray,
-            y: np.ndarray,
-            random_state: RandomState,
-            clear_pool: bool,
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        random_state: RandomState,
+        clear_pool: bool,
     ) -> Optional[List[Rule]]:
 
         if clear_pool:
@@ -215,7 +214,6 @@ class NSGA2Novelty_G_P(NSGA2):
         profiler = cProfile.Profile() if self.profile else None
         if profiler:
             profiler.enable()
-
 
         population = Parallel(n_jobs=self.n_jobs)(
             delayed(self._init_valid_origin)(origin, X, y, random_state) for origin in origins
@@ -258,13 +256,24 @@ class NSGA2Novelty_G_P(NSGA2):
 
         return pareto_front
 
-
     def _optimize(
-            self,
-            X: np.ndarray,
-            y: np.ndarray,
-            random_state: RandomState,
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        random_state: RandomState,
     ) -> Optional[List[Rule]]:
+
+        self._dynamic_objs, self._dynamic_labels = NSGA2Objectives.get_dynamic_objectives(
+            X=X,
+            y=y,
+            fitness_objs=self.fitness_objs,
+            fitness_labels=self.fitness_objs_labels,
+            metrics=self.metrics,
+        )
+
+        if self._novelty_obj not in self._dynamic_objs:
+            self._dynamic_objs.append(self._novelty_obj)
+            self._dynamic_labels.append(self._novelty_label)
 
         useful_rules: List[Rule] = []
         restarts = 0
@@ -294,28 +303,17 @@ class NSGA2Novelty_G_P(NSGA2):
                 restarts += 1
                 continue
 
-        # Truncate to mu if we got more (optional)
         if useful_rules:
             useful_rules = useful_rules[: self.mu]
-
-        # to_visualize = useful_rules if useful_rules else (pareto_front or [])
-        # if to_visualize:
-        #     visualize_pareto_front(self, to_visualize)
 
         print(f"Iterations needed to generate mu useful rules: {restarts + 1}")
         return useful_rules if useful_rules else (pareto_front or None)
 
-# ────────────────────────────────────────────────────────────────
-# Helper functions
-# ────────────────────────────────────────────────────────────────
-    def _fitness_objs_runtime(self) -> List[Callable[[Rule], float]]:
-        return list(self.fitness_objs) + [self._novelty_obj]
-
-    def _fitness_labels_runtime(self) -> List[str]:
-        return list(self.fitness_objs_labels) + [self._novelty_label]
-
+    # ────────────────────────────────────────────────────────────────
+    # Helper functions
+    # ────────────────────────────────────────────────────────────────
     def _cap_list(self, seq: List[Rule]) -> List[Rule]:
         if len(seq) <= self.archive_maxlen:
             return seq
 
-        return seq[-self.archive_maxlen:]
+        return seq[-self.archive_maxlen :]

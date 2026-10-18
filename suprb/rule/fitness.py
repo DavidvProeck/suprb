@@ -4,7 +4,7 @@ from typing import Callable
 import numpy as np
 import warnings
 
-from suprb.fitness import pseudo_accuracy, emary, wu, moo
+from suprb.fitness import pseudo_accuracy, emary, wu, placeholder
 from . import Rule, RuleFitness
 from ..fitness import BaseFitness
 
@@ -67,11 +67,12 @@ class VolumeWu(VolumeRuleFitness):
         super().__init__(alpha)
         self.fitness_func_ = wu
 
-class MooFitness(RuleFitness, metaclass=ABCMeta):
+
+class PlaceholderFitness(RuleFitness, metaclass=ABCMeta):
     """
     A placeholder fitness function which always returns NaN.
-    This function is used in multi-objective optimization (MOO) as the rule attribute `.fitness_` is never accessed.
-    Using another fitness function has no impact on the MOO and may be misleading.
+    This function is used in e.g. multi-objective optimization (MOO) as the rule attribute `.fitness_` is never accessed.
+    Using another fitness function has no impact and may be misleading.
 
     Changing the fitness attribute to a vector may make the code more intuitive.
     """
@@ -80,11 +81,11 @@ class MooFitness(RuleFitness, metaclass=ABCMeta):
 
     def __init__(self):
         super().__init__()
-        self.fitness_func_ = moo
+        self.fitness_func_ = placeholder
         warnings.warn(
-            "MooFitness is a dummy fitness function which always returns NaN. "
-            "When using multi-objective optimization (MOO), the rule attribute `.fitness_` is never accessed. "
-            "Using another fitness function has no impact on the MOO and may be misleading.",
+            "PlaceholderFitness is a dummy fitness function which always returns NaN. "
+            "When using e.g. multi-objective optimization (MOO), the rule attribute `.fitness_` is never accessed. "
+            "Using another fitness function has no impact and may be misleading.",
             UserWarning,
             stacklevel=2,
         )
